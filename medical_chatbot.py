@@ -1,22 +1,20 @@
 # medical_chatbot.py
 
+import os
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.vectorstores import Chroma
-from langchain_community.llms import LlamaCppcls
-from langchain.chains import RetrievalQA
+from langchain_openai import ChatOpenAI
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.schema.output_parser import StrOutputParser
 from langchain.prompts import ChatPromptTemplate
-import os
-
-# === Paths ===
 from dotenv import load_dotenv
-load_dotenv()
-MODEL_PATH = os.getenv("MODEL_PATH")
-PDF_PATH = os.getenv("PDF_PATH")
 
+# === Load environment variables ===
+load_dotenv()
+
+PDF_PATH = "data/medical_docs"
 
 # === Load Documents ===
 loader = PyPDFDirectoryLoader(PDF_PATH)
@@ -31,20 +29,18 @@ embeddings = SentenceTransformerEmbeddings(model_name="NeuML/pubmedbert-base-emb
 vectorstore = Chroma.from_documents(chunks, embeddings)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-# === Load LLM ===
-llm = LlamaCpp(
-    model_path=MODEL_PATH,
-    temperature=0.25,
-    max_tokens=2048,
-    top_p=1,
-    verbose=False
+# === OpenAI LLM ===
+llm = ChatOpenAI(
+    model="gpt-4o-mini",   # or gpt-4-turbo, gpt-3.5-turbo
+    temperature=0.3,
+    openai_api_key=os.getenv("OPENAI_API_KEY")
 )
 
 # === Prompt Template ===
 template = """
 <|context|>
-You are a helpful medical assistant that follows the instructions and generates accurate responses based on the query and context provided.
-Please be truthful and give direct answers.
+You are a helpful medical assistant that follows the instructions and generates accurate, concise responses based on the query and context provided.
+Please be truthful and direct.
 </s>
 <|user|>
 {query}
@@ -54,7 +50,7 @@ Please be truthful and give direct answers.
 
 prompt = ChatPromptTemplate.from_template(template)
 
-# === Build RAG Chain ===
+# === RAG Chain ===
 rag_chain = (
     {"context": retriever, "query": RunnablePassthrough()}
     | prompt
@@ -65,3 +61,5 @@ rag_chain = (
 def get_response(query: str):
     """Helper function for Streamlit."""
     return rag_chain.invoke(query)
+
+
