@@ -1,11 +1,9 @@
 streamlit
 langchain
 langchain-community
+langchain-openai
 sentence-transformers
 chromadb
-llama-cpp-python
 pypdf
 python-dotenv
-torch
-transformers
-accelerate
+
